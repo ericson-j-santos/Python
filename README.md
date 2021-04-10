@@ -1,2 +1,2 @@
-# Alguns códigos aprendidos no Curso em vídeo na linguagem Python.
+# Alguns códigos aprendidos em Pythone um pouco do Machine Leraning e Redes Neurais.
 ericsontakay
