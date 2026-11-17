@@ -127,3 +127,39 @@ def test_dados_ausentes_falham_sem_mudar_arquivo(tmp_path):
     (p / "test.csv").unlink()
     with pytest.raises(FileNotFoundError, match="test.csv"):
         renda.realizar(p)
+
+
+def test_arquivo_teste_nao_lido_para_hash_antes_da_escolha(tmp_path, monkeypatch):
+    pasta = criar_dados_sinteticos(tmp_path / "dados")
+    eventos = []
+    sha_real = renda.sha256
+    escolha_real = renda.escolher_limiar
+    leitura_real = renda.ler_csv
+
+    def hash_observado(caminho):
+        eventos.append("hash:" + caminho.name)
+        return sha_real(caminho)
+
+    def escolha_observada(*args, **kwargs):
+        eventos.append("escolha")
+        return escolha_real(*args, **kwargs)
+
+    def leitura_observada(caminho):
+        eventos.append("ler:" + caminho.name)
+        return leitura_real(caminho)
+
+    monkeypatch.setattr(renda, "sha256", hash_observado)
+    monkeypatch.setattr(renda, "escolher_limiar", escolha_observada)
+    monkeypatch.setattr(renda, "ler_csv", leitura_observada)
+    monkeypatch.setattr(renda, "modelos", lambda: {"regressao_logistica": Pipeline([
+        ("preparo", renda.processador(True)),
+        ("classificador", LogisticRegression(max_iter=300, random_state=renda.SEMENTE)),
+    ])})
+    monkeypatch.setattr(renda, "importancia_permutacao", lambda *args: [])
+    resultado = renda.realizar(pasta)
+    assert resultado["avaliacao_final_teste"]["f1"] >= 0
+    ultimo_ajuste = max(i for i, evento in enumerate(eventos) if evento == "escolha")
+    primeiro_acesso_teste = min(i for i, evento in enumerate(eventos) if evento.endswith(":test.csv"))
+    assert primeiro_acesso_teste > ultimo_ajuste, f"Acesso antecipado a test.csv: {eventos}"
+    assert eventos.count("ler:test.csv") == 1
+    assert eventos.count("hash:test.csv") == 2

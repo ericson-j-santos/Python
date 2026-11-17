@@ -159,7 +159,9 @@ def realizar(diretorio: Path) -> dict[str, Any]:
     caminho_treino = diretorio / "train.csv"
     caminho_val = diretorio / "validation.csv"
     caminho_teste = diretorio / "test.csv"
-    origem = {nome: sha256(diretorio / nome) for nome in ("train.csv", "validation.csv", "test.csv")}
+    origem = {nome: sha256(diretorio / nome) for nome in ("train.csv", "validation.csv")}
+    if not caminho_teste.is_file():
+        raise FileNotFoundError("CSV ausente: test.csv")
     treino = ler_csv(caminho_treino)
     validacao = ler_csv(caminho_val)
     x_train, y_train = preparar_x(treino), preparar_y(treino)
@@ -187,7 +189,8 @@ def realizar(diretorio: Path) -> dict[str, Any]:
     assert vencedor is not None and selecao is not None
     explicacao = importancia_permutacao(vencedor, x_val, y_val, selecao["limiar"])
 
-    # Primeiro uso de valores de test.csv: unicamente avaliação final.
+    # Primeiro acesso ao conteúdo de test.csv: após escolher modelo e limiar.
+    origem["test.csv"] = sha256(caminho_teste)
     teste = ler_csv(caminho_teste)
     x_test, y_test = preparar_x(teste), preparar_y(teste)
     final = metricas(y_test, vencedor.predict_proba(x_test)[:, 1], selecao["limiar"])
